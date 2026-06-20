@@ -39,7 +39,7 @@ export const GetDebtPayments = async (debtId: string) => (await api.get(`/debts/
 export const CreateDebtPayment = async (debtId: string, data: any) => (await api.post(`/debts/${debtId}/payments`, data)).data;
 
 // Folders
-export const GetFolders = async () => (await api.get('/folders')).data;
+export const GetFolders = async (params?: any) => (await api.get('/folders', { params })).data;
 export const GetFolderById = async (id: string) => (await api.get(`/folders/${id}`)).data;
 export const CreateFolder = async (data: any) => (await api.post('/folders', data)).data;
 export const UpdateFolder = async (id: string, data: any) => (await api.patch(`/folders/${id}`, data)).data;

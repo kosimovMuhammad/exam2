@@ -9,7 +9,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { GetDebts, GetDebtPayments } from '@/lib/api';
 import { PageHeader, LoadingSkeleton, ErrorAlert, EmptyState } from '@/components/common';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, formatDate, formatRelativeTime } from '@/lib/utils';

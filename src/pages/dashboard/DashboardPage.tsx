@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Landmark,
@@ -8,11 +8,6 @@ import {
   Plus,
   Receipt,
   FileText,
-  Wallet,
-  Building2,
-  CheckCircle2,
-  RefreshCw,
-  Send,
   TrendingUp,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -20,36 +15,12 @@ import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { cn, formatCurrency, getDaysUntilDue, formatRelativeTime } from '@/lib/utils';
+import { cn, formatCurrency, getDaysUntilDue } from '@/lib/utils';
 import { GetDashboardSummary, GetDebts, GetContacts } from '@/lib/api';
 import { format } from 'date-fns';
 
 
 
-const UPCOMING_DUE = [
-  {
-    id: 1,
-    name: 'Design Studio Inc.',
-    dueText: 'Due Tomorrow',
-    amount: '-$450',
-    dotColor: 'bg-red-500',
-  },
-  {
-    id: 2,
-    name: 'Freelance Writer',
-    dueText: 'Due in 3 days',
-    amount: '-$120',
-    dotColor: 'bg-yellow-500',
-  },
-  {
-    id: 3,
-    name: 'Bob Smith (Rent)',
-    dueText: 'Due in 5 days',
-    amount: '+$800',
-    amountColor: 'text-green-500',
-    dotColor: 'bg-green-500',
-  },
-];
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -61,10 +32,9 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [summaryData, debtsData, contactsData] = await Promise.all([
+        const [summaryData, debtsData] = await Promise.all([
           GetDashboardSummary(),
           GetDebts().catch(() => []),
-          GetContacts().catch(() => [])
         ]);
         
         setSummary(summaryData);

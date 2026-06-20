@@ -38,8 +38,6 @@ export default function TopBar() {
   const dispatch = useAppDispatch();
   const { t, i18n } = useTranslation();
 
-  const currentLang = LANGUAGES.find((l) => l.code === i18n.language) || LANGUAGES[1];
-
   const handleLanguageChange = (langCode: string) => {
     i18n.changeLanguage(langCode);
   };

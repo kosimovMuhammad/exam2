@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Plus, Folder as FolderIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { GetFolders, CreateFolder, UpdateFolder, DeleteFolder, GetContacts, GetDebts } from '@/lib/api';
-import { PageHeader, LoadingSkeleton, ErrorAlert, EmptyState, ConfirmDialog } from '@/components/common';
+import { PageHeader, ErrorAlert, EmptyState, ConfirmDialog } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import type { Folder, Contact, Debt } from '@/types';
