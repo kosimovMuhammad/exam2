@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatCurrency, getDaysUntilDue } from '@/lib/utils';
-import { GetDashboardSummary, GetDebts, GetContacts } from '@/lib/api';
+import { GetDashboardSummary, GetDebts } from '@/lib/api';
 import { format } from 'date-fns';
 
 
