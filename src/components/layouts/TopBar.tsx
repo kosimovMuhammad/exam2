@@ -18,10 +18,16 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import { LogOut, Edit2, User, Users, Settings } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { getInitials } from '@/lib/utils';
 
@@ -126,8 +132,8 @@ export default function TopBar() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <Popover>
+            <PopoverTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-2 px-2">
                 <Avatar className="w-8 h-8">
                   <AvatarFallback>
@@ -140,29 +146,101 @@ export default function TopBar() {
                   </span>
                 )}
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>
-                <div className="flex flex-col">
-                  <span>{user?.name}</span>
-                  <span className="text-xs font-normal text-muted-foreground">
-                    {user?.email}
-                  </span>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80 p-0 border-border bg-card shadow-xl overflow-hidden rounded-xl">
+              <div className="bg-slate-800 dark:bg-slate-900 p-6 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <Avatar className="w-12 h-12 border-2 border-slate-700">
+                    <AvatarFallback className="bg-slate-700 text-white">
+                      {user?.name ? getInitials(user.name) : 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col">
+                    <span className="text-base font-semibold text-white">{user?.name || 'Muhammad'}</span>
+                    <span className="text-sm text-slate-400">Owner</span>
+                  </div>
                 </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link to="/profile">{t('common.profile')}</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/settings">{t('common.settings')}</Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={logout} className="text-destructive">
-                {t('common.logOut')}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white hover:bg-slate-700 rounded-full" onClick={logout}>
+                  <LogOut className="w-5 h-5" />
+                </Button>
+              </div>
+              
+              <Tabs defaultValue="profile" className="w-full">
+                <TabsList className="w-full grid grid-cols-2 rounded-none border-b border-border bg-transparent h-12 p-0">
+                  <TabsTrigger 
+                    value="profile" 
+                    className="rounded-none h-full data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none"
+                  >
+                    <User className="w-4 h-4 mr-2" />
+                    Profile
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="setting" 
+                    className="rounded-none h-full data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none"
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    Setting
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="profile" className="p-2 m-0 outline-none">
+                  <div className="flex flex-col gap-1">
+                    <Link to="/profile" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted text-sm transition-colors">
+                      <Edit2 className="w-4 h-4 text-muted-foreground" />
+                      Edit Profile
+                    </Link>
+                    <Link to="/profile" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted text-sm transition-colors">
+                      <User className="w-4 h-4 text-muted-foreground" />
+                      View Profile
+                    </Link>
+                    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted text-sm transition-colors cursor-pointer text-muted-foreground">
+                      <Users className="w-4 h-4" />
+                      Social Profile
+                    </div>
+                    <div onClick={logout} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted text-sm transition-colors cursor-pointer text-muted-foreground">
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </div>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="setting" className="p-4 m-0 outline-none space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 text-sm">
+                      {isDark ? <Moon className="w-4 h-4 text-muted-foreground" /> : <Sun className="w-4 h-4 text-yellow-500" />}
+                      Dark Mode
+                    </div>
+                    <Switch 
+                      checked={isDark} 
+                      onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')} 
+                    />
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 text-sm">
+                      <Languages className="w-4 h-4 text-muted-foreground" />
+                      Language
+                    </div>
+                    <div className="grid grid-cols-1 gap-2">
+                      {LANGUAGES.map((lang) => (
+                        <button
+                          key={lang.code}
+                          onClick={() => handleLanguageChange(lang.code)}
+                          className={`text-xs py-2 px-3 rounded-lg border transition-colors text-center ${
+                            i18n.language === lang.code 
+                              ? 'bg-primary/10 border-primary text-primary' 
+                              : 'border-border hover:bg-muted'
+                          }`}
+                        >
+                          {lang.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
     </header>

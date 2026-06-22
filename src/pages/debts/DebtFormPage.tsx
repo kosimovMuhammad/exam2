@@ -6,8 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowLeft, Loader2, Save, CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
-import { GetDebtById, CreateDebt, UpdateDebt } from '@/lib/api';
-import { GetContacts } from '@/lib/api';
+import { useAppDispatch, useAppSelector, fetchContacts, fetchDebtById, clearCurrentDebt, createDebt, updateDebt } from '@/store';
 import { debtSchema, DebtFormData } from '@/lib/utils';
 import { PageHeader } from '@/components/common';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -30,21 +29,25 @@ import {
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import type { Contact, DebtDirection, DebtStatus } from '@/types';
+import type { DebtDirection, DebtStatus } from '@/types';
 
 export default function DebtFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [searchParams] = useSearchParams();
   const folderId = searchParams.get('folderId');
   const folderName = searchParams.get('folderName');
   const isEditing = Boolean(id);
   const { t } = useTranslation();
 
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [isLoadingDebt, setIsLoadingDebt] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { items: allContacts } = useAppSelector((state) => state.contacts);
+  const { currentDebt, currentDebtStatus } = useAppSelector((state) => state.debts);
+  
+  const contacts = folderId ? allContacts.filter(c => String(c.folder_id === 'object' && c.folder_id !== null ? (c.folder_id as any).id : c.folder_id) === folderId) : allContacts;
+  const isLoadingDebt = currentDebtStatus === 'loading';
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedContact, setSelectedContact] = useState('');
   const [selectedDirection, setSelectedDirection] = useState<DebtDirection>('i_owe_them');
   const [selectedStatus, setSelectedStatus] = useState<DebtStatus>('pending');
@@ -69,56 +72,35 @@ export default function DebtFormPage() {
   });
 
   useEffect(() => {
-    const fetchContactsData = async () => {
-      const data = await GetContacts();
-      if (folderId && data) {
-        setContacts(data.filter((c: any) => c.folder_id === folderId));
-      } else {
-        setContacts(data || []);
-      }
-    };
+    dispatch(fetchContacts({}));
+  }, [dispatch]);
 
-    fetchContactsData();
-  }, []);
   useEffect(() => {
-    if (!id) return; 
+    if (id) {
+      dispatch(fetchDebtById(id));
+    } else {
+      dispatch(clearCurrentDebt());
+    }
+  }, [id, dispatch]);
 
-    const fetchDebtData = async () => {
-      setIsLoadingDebt(true);
-      
-      try {
-        const data = await GetDebtById(id); 
-        
-        reset({
-          contact_id: data.contact_id,
-          direction: data.direction,
-          amount: data.amount,
-          currency: data.currency || 'USD',
-          description: data.description || '',
-          due_date: data.due_date || '',
-        });
-        
-        setSelectedContact(data.contact_id);
-        setSelectedDirection(data.direction);
-        setSelectedStatus(data.status);
-        
-        if (data.due_date) {
-          setSelectedDate(new Date(data.due_date));
-        }
-        
-      } catch (error) {
-        // Ба ҷои .catch
-        toast.error(t('debts.failedToLoadDebt'));
-      } finally {
-        // Ба ҷои .finally
-        setIsLoadingDebt(false);
+  useEffect(() => {
+    if (id && currentDebt && currentDebt.id === id) {
+      reset({
+        contact_id: currentDebt.contact_id,
+        direction: currentDebt.direction,
+        amount: currentDebt.amount,
+        currency: currentDebt.currency || 'USD',
+        description: currentDebt.description || '',
+        due_date: currentDebt.due_date || '',
+      });
+      setSelectedContact(currentDebt.contact_id);
+      setSelectedDirection(currentDebt.direction);
+      setSelectedStatus(currentDebt.status);
+      if (currentDebt.due_date) {
+        setSelectedDate(new Date(currentDebt.due_date));
       }
-    };
-
-    // Функсияро ба кор медарорем
-    fetchDebtData(); 
-    
-  }, [id, reset, t]);
+    }
+  }, [id, currentDebt, reset]);
 
   useEffect(() => {
     setValue('contact_id', selectedContact);
@@ -138,13 +120,16 @@ export default function DebtFormPage() {
       };
       
       if (isEditing && id) {
-        await UpdateDebt(id, {
-          ...payload,
-          status: selectedStatus,
-        });
+        await dispatch(updateDebt({
+          id,
+          data: {
+            ...payload,
+            status: selectedStatus,
+          }
+        })).unwrap();
         toast.success(t('debts.debtUpdated'));
       } else {
-        await CreateDebt(payload);
+        await dispatch(createDebt(payload)).unwrap();
         toast.success(t('debts.debtCreated'));
       }
       if (folderId) {

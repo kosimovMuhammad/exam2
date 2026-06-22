@@ -3,9 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CreditCard, Eye, EyeOff, Loader2, Check } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { RegisterUser } from '@/lib/api';
 import { registerSchema, RegisterFormData } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +13,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { useAppDispatch, setCredentials } from '@/store';
+import { useAppDispatch, registerUser } from '@/store';
+import { Logo } from '@/components/ui/Logo';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -54,16 +54,9 @@ export default function RegisterPage() {
 
     setIsLoading(true);
     try {
-      const dataResult = await RegisterUser(data);
-      if (dataResult.user && dataResult.accessToken) {
-        localStorage.setItem('access', dataResult.accessToken);
-        if (dataResult.refreshToken) localStorage.setItem('refresh', dataResult.refreshToken);
-        dispatch(setCredentials({ user: dataResult.user }));
-        toast.success(t('auth.registrationSuccess'));
-        navigate('/dashboard');
-      } else {
-        toast.error(t('auth.registrationFailed'));
-      }
+      await dispatch(registerUser(data)).unwrap();
+      toast.success(t('auth.registrationSuccess'));
+      navigate('/dashboard');
     } catch {
       toast.error(t('auth.registrationFailed'));
     } finally {
@@ -79,11 +72,8 @@ export default function RegisterPage() {
         className="w-full max-w-md"
       >
         <div className="flex items-center justify-center mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-              <CreditCard className="w-7 h-7 text-primary-foreground" />
-            </div>
-            <span className="text-2xl font-bold">{t('common.appName')}</span>
+          <div className="flex justify-center mb-8">
+            <Logo className="scale-125" />
           </div>
         </div>
 

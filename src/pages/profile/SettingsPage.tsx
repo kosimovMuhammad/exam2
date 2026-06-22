@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Sun, Moon, Monitor, Server, RefreshCw, Languages } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { GetSystemHealth } from '@/lib/api';
+import { useAppDispatch, useAppSelector, fetchSystemHealth } from '@/store';
 import { formatDate } from '@/lib/utils';
 
 const LANGUAGES = [
@@ -27,25 +27,21 @@ const LANGUAGES = [
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
-  const [healthStatus, setHealthStatus] = useState<{ status: string; time: string } | null>(null);
-  const [isChecking, setIsChecking] = useState(false);
   const { t, i18n } = useTranslation();
+  
+  const dispatch = useAppDispatch();
+  const { health, status: systemStatus } = useAppSelector((state) => state.system);
+  const isChecking = systemStatus === 'loading';
 
-  const checkHealth = async () => {
-    setIsChecking(true);
-    try {
-      const data = await GetSystemHealth();
-      setHealthStatus({ status: 'online', time: data.time || new Date().toISOString() });
-    } catch {
-      setHealthStatus({ status: 'offline', time: new Date().toISOString() });
-    } finally {
-      setIsChecking(false);
-    }
+  const checkHealth = () => {
+    dispatch(fetchSystemHealth());
   };
 
   useEffect(() => {
-    checkHealth();
-  }, []);
+    if (systemStatus === 'idle') {
+      checkHealth();
+    }
+  }, [dispatch, systemStatus]);
 
   return (
     <motion.div
@@ -153,14 +149,14 @@ export default function SettingsPage() {
             <div>
               <p className="font-medium">{t('settings.apiHealth')}</p>
               <p className="text-sm text-muted-foreground">
-                {healthStatus ? t('settings.lastChecked', { time: formatDate(healthStatus.time) }) : t('settings.checking')}
+                {health?.time ? t('settings.lastChecked', { time: formatDate(health.time) }) : t('settings.checking')}
               </p>
             </div>
-            {healthStatus?.status === 'online' ? (
+            {health?.status === 'online' ? (
               <Badge variant="outline" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
                 {t('settings.online')}
               </Badge>
-            ) : healthStatus?.status === 'offline' ? (
+            ) : health?.status === 'offline' ? (
               <Badge variant="destructive">
                 {t('settings.offline')}
               </Badge>

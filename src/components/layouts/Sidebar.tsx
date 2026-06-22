@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { NAVIGATION_ITEMS } from '@/constants';
 import { getInitials } from '@/lib/utils';
+import { Logo } from '@/components/ui/Logo';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard,
@@ -81,12 +82,7 @@ export default function Sidebar() {
               className="fixed left-0 top-0 bottom-0 w-64 bg-card border-r border-border z-50 flex flex-col"
             >
               <div className="p-4 flex items-center justify-between border-b border-border">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                    <CreditCard className="w-5 h-5 text-primary-foreground" />
-                  </div>
-                  <span className="font-semibold text-lg">DebtTracker</span>
-                </div>
+                <Logo />
                 <Button variant="ghost" size="icon" onClick={closeMobileMenu}>
                   <X className="w-5 h-5" />
                 </Button>
@@ -151,27 +147,8 @@ export default function Sidebar() {
       transition={{ duration: 0.2 }}
       className="fixed left-0 top-0 bottom-0 bg-card border-r border-border z-30 flex flex-col"
     >
-      <div className="p-4 flex items-center justify-between border-b border-border">
-        <AnimatePresence mode="wait">
-          {!sidebarCollapsed && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex items-center gap-2"
-            >
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <CreditCard className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <span className="font-semibold text-lg">DebtTracker</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        {sidebarCollapsed && (
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center mx-auto">
-            <CreditCard className="w-5 h-5 text-primary-foreground" />
-          </div>
-        )}
+      <div className="p-4 flex items-center justify-center border-b border-border overflow-hidden h-[73px]">
+        <Logo collapsed={sidebarCollapsed} className="mx-auto" />
       </div>
 
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">

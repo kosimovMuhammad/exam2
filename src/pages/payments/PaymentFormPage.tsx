@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowLeft, Loader2, Save, CalendarIcon, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
-import { GetDebts, CreateDebtPayment } from '@/lib/api';
+import { useAppDispatch, useAppSelector, fetchDebts, createDebtPayment } from '@/store';
 import { paymentSchema, PaymentFormData } from '@/lib/utils';
 import { PageHeader } from '@/components/common';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -30,15 +30,15 @@ import {
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
-import type { Debt } from '@/types';
 
 export default function PaymentFormPage() {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [searchParams] = useSearchParams();
   const preselectedDebtId = searchParams.get('debtId');
   const { t } = useTranslation();
 
-  const [debts, setDebts] = useState<Debt[]>([]);
+  const { items: debts } = useAppSelector((state) => state.debts);
   const [selectedDebt, setSelectedDebt] = useState(preselectedDebtId || '');
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,10 +61,8 @@ export default function PaymentFormPage() {
   const amountValue = watch('amount');
 
   useEffect(() => {
-    GetDebts().then((data) => {
-      setDebts(data || []);
-    }).catch(() => {});
-  }, []);
+    dispatch(fetchDebts({}));
+  }, [dispatch]);
 
   useEffect(() => {
     if (selectedDate) {
@@ -82,11 +80,14 @@ export default function PaymentFormPage() {
 
     setIsSubmitting(true);
     try {
-      await CreateDebtPayment(selectedDebt, {
-        amount: data.amount,
-        note: data.note || undefined,
-        paid_at: data.payment_date,
-      });
+      await dispatch(createDebtPayment({
+        debtId: selectedDebt,
+        data: {
+          amount: data.amount,
+          note: data.note || undefined,
+          paid_at: data.payment_date,
+        }
+      })).unwrap();
       toast.success(t('payments.paymentRecorded'));
       navigate('/payments');
     } catch {

@@ -4,6 +4,7 @@ import LoginPage from '@/pages/auth/LoginPage';
 import RegisterPage from '@/pages/auth/RegisterPage';
 import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from '@/pages/auth/ResetPasswordPage';
+import LandingPage from '@/pages/LandingPage';
 import DashboardPage from '@/pages/dashboard/DashboardPage';
 import DebtsListPage from '@/pages/debts/DebtsListPage';
 import DebtDetailsPage from '@/pages/debts/DebtDetailsPage';
@@ -21,7 +22,11 @@ import { ProtectedRoute, PublicRoute } from './ProtectedRoute';
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <Navigate to="/dashboard" replace />,
+    element: (
+      <PublicRoute>
+        <LandingPage />
+      </PublicRoute>
+    ),
   },
   {
     path: '/login',
@@ -56,17 +61,12 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    path: '/',
     element: (
       <ProtectedRoute>
         <DashboardLayout />
       </ProtectedRoute>
     ),
     children: [
-      {
-        index: true,
-        element: <Navigate to="/dashboard" replace />,
-      },
       {
         path: 'dashboard',
         element: <DashboardPage />,

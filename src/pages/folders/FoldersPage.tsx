@@ -1,25 +1,27 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Plus, Folder as FolderIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { GetFolders, CreateFolder, UpdateFolder, DeleteFolder, GetContacts, GetDebts } from '@/lib/api';
+import { useAppDispatch, useAppSelector, fetchFolders, createFolder, updateFolder, deleteFolder, fetchContacts, fetchDebts } from '@/store';
 import { PageHeader, ErrorAlert, EmptyState, ConfirmDialog } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import type { Folder, Contact, Debt } from '@/types';
+import type { Folder } from '@/types';
 import { FolderCard } from './components/FolderCard';
 import { FolderFormModal } from './components/FolderFormModal';
 
 export default function FoldersPage() {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { t } = useTranslation();
 
-  const [folders, setFolders] = useState<Folder[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [debts, setDebts] = useState<Debt[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { items: folders, status: foldersStatus, error: foldersError } = useAppSelector((state) => state.folders);
+  const { items: contacts } = useAppSelector((state) => state.contacts);
+  const { items: debts } = useAppSelector((state) => state.debts);
+
+  const isLoading = foldersStatus === 'loading' || foldersStatus === 'idle';
+  const error = foldersError;
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
@@ -29,28 +31,11 @@ export default function FoldersPage() {
   const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [foldersData, contactsData, debtsData] = await Promise.all([
-        GetFolders({ limit: 1000 }).catch(() => []),
-        GetContacts({ limit: 1000 }).catch(() => []),
-        GetDebts({ limit: 1000 }).catch(() => []),
-      ]);
-      setFolders(foldersData || []);
-      setContacts(contactsData || []);
-      setDebts(debtsData || []);
-    } catch {
-      setError(t('folders.failedToLoad'));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [t]);
-
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    dispatch(fetchFolders({}));
+    dispatch(fetchContacts({}));
+    dispatch(fetchDebts({}));
+  }, [dispatch]);
 
   const folderStats = useMemo(() => {
     const stats: Record<string, { theyOweMe: number; iOweThem: number; total: number }> = {};
@@ -70,11 +55,9 @@ export default function FoldersPage() {
       });
       
       folderDebts.forEach(debt => {
-        // Parse amount defensively in case it's a formatted string
         const amtStr = String(debt.amount).replace(/[^0-9.-]+/g, "");
         const amt = parseFloat(amtStr) || 0;
         
-        // Only include active debts in outstanding balances
         if (debt.status === 'paid') return;
         
         if (debt.direction === 'they_owe_me') {
@@ -94,14 +77,13 @@ export default function FoldersPage() {
     setIsSubmitting(true);
     try {
       if (editingFolder) {
-        await UpdateFolder(editingFolder.id, data);
+        await dispatch(updateFolder({ id: editingFolder.id, data })).unwrap();
         toast.success(t('folders.folderUpdated', 'Folder updated successfully'));
       } else {
-        await CreateFolder(data);
+        await dispatch(createFolder(data)).unwrap();
         toast.success(t('folders.folderCreated', 'Folder created successfully'));
       }
       setModalOpen(false);
-      fetchData();
     } catch {
       toast.error(editingFolder ? t('folders.updateFailed', 'Failed to update folder') : t('folders.createFailed', 'Failed to create folder'));
     } finally {
@@ -113,11 +95,10 @@ export default function FoldersPage() {
     if (!folderToDelete) return;
     setIsDeleting(true);
     try {
-      await DeleteFolder(folderToDelete.id);
+      await dispatch(deleteFolder(folderToDelete.id)).unwrap();
       toast.success(t('folders.folderDeleted', 'Folder deleted successfully'));
       setDeleteDialogOpen(false);
       setFolderToDelete(null);
-      fetchData();
     } catch {
       toast.error(t('folders.deleteFailed', 'Failed to delete folder'));
     } finally {
@@ -129,7 +110,7 @@ export default function FoldersPage() {
     navigate(`/debts?folderId=${folder.id}&folderName=${encodeURIComponent(folder.name)}`);
   };
 
-  if (isLoading) {
+  if (isLoading && folders.length === 0) {
     return (
       <div className="space-y-6">
         <PageHeader title={t('folders.title')} />
@@ -142,11 +123,11 @@ export default function FoldersPage() {
     );
   }
 
-  if (error) {
+  if (error && folders.length === 0) {
     return (
       <div className="space-y-6">
         <PageHeader title={t('folders.title')} />
-        <ErrorAlert message={error} onRetry={fetchData} />
+        <ErrorAlert message={error} onRetry={() => dispatch(fetchFolders({}))} />
       </div>
     );
   }

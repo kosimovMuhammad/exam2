@@ -14,10 +14,7 @@ export function formatCurrency(amount: number) {
 }
 
 export function formatDate(dateString: string) {
-  return new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(dateString));
+  return new Date(dateString).toLocaleString('en-US');
 }
 
 export function formatRelativeTime(dateString: string) {

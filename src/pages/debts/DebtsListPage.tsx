@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -13,7 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { GetDebts, DeleteDebt, GetContacts } from '@/lib/api';
+import { useAppDispatch, useAppSelector, fetchDebts, deleteDebt, fetchContacts } from '@/store';
 import { PageHeader, LoadingSkeleton, ErrorAlert, EmptyState, ConfirmDialog } from '@/components/common';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,65 +36,41 @@ import {
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { DEBT_STATUS_COLORS, DEBT_DIRECTION_COLORS } from '@/constants';
-import type { Debt } from '@/types';
 
 export default function DebtsListPage() {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
   const folderId = searchParams.get('folderId');
   const folderName = searchParams.get('folderName');
-  const [debts, setDebts] = useState<Debt[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  
+  const { items: debts, status: debtsStatus, error: debtsError } = useAppSelector((state) => state.debts);
+  const { items: contacts } = useAppSelector((state) => state.contacts);
+  
+  const isLoading = debtsStatus === 'loading' || debtsStatus === 'idle';
+  const error = debtsError;
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [directionFilter, setDirectionFilter] = useState<string>('all');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [debtToDelete, setDebtToDelete] = useState<Debt | null>(null);
+  const [debtToDelete, setDebtToDelete] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const { t } = useTranslation();
 
-  const fetchDebts = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const params: Record<string, string> = {};
-      if (statusFilter !== 'all') params.status = statusFilter;
-      if (directionFilter !== 'all') params.direction = directionFilter;
-      if (folderId) params.folder_id = folderId;
-      
-      const [debtsResult, contactsResult] = await Promise.all([
-        GetDebts(params).catch(() => []),
-        GetContacts().catch(() => [])
-      ]);
-      
-      let filtered = debtsResult || [];
-      if (folderId && contactsResult) {
-        const validContactIds = contactsResult.filter((c: any) => c.folder_id === folderId).map((c: any) => c.id);
-        // If backend already filtered it, this won't hurt. If not, this fixes it.
-        filtered = filtered.filter((d: Debt) => validContactIds.includes(d.contact_id));
-      }
-      setDebts(filtered);
-    } catch {
-      setError(t('debts.failedToLoad'));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [statusFilter, directionFilter, folderId, t]);
-
   useEffect(() => {
-    fetchDebts();
-  }, [fetchDebts]);
+    dispatch(fetchDebts({}));
+    dispatch(fetchContacts({}));
+  }, [dispatch]);
 
   const handleDelete = async () => {
     if (!debtToDelete) return;
     setIsDeleting(true);
     try {
-      await DeleteDebt(debtToDelete.id);
+      await dispatch(deleteDebt(debtToDelete.id)).unwrap();
       toast.success(t('debts.debtDeleted'));
       setDeleteDialogOpen(false);
       setDebtToDelete(null);
-      fetchDebts();
     } catch {
       toast.error(t('debts.debtDeleteFailed'));
     } finally {
@@ -103,15 +79,24 @@ export default function DebtsListPage() {
   };
 
   const filteredDebts = debts.filter((debt) => {
-    if (!searchTerm) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      debt.description?.toLowerCase().includes(term) ||
-      debt.contact_id?.toLowerCase().includes(term)
-    );
+    if (folderId) {
+      const debtContact = contacts.find(c => c.id === debt.contact_id);
+      const contactFolderId = debtContact?.folder_id && typeof debtContact.folder_id === 'object' ? (debtContact.folder_id as any).id : debtContact?.folder_id;
+      if (!debtContact || String(contactFolderId) !== folderId) return false;
+    }
+    if (statusFilter !== 'all' && debt.status !== statusFilter) return false;
+    if (directionFilter !== 'all' && debt.direction !== directionFilter) return false;
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      return (
+        debt.description?.toLowerCase().includes(term) ||
+        debt.contact_id?.toLowerCase().includes(term)
+      );
+    }
+    return true;
   });
 
-  if (isLoading) {
+  if (isLoading && debts.length === 0) {
     return (
       <div className="space-y-6">
         <PageHeader title={t('debts.title')} description={t('debts.manageDebts')} />
@@ -120,11 +105,11 @@ export default function DebtsListPage() {
     );
   }
 
-  if (error) {
+  if (error && debts.length === 0) {
     return (
       <div className="space-y-6">
         <PageHeader title={t('debts.title')} />
-        <ErrorAlert message={error} onRetry={fetchDebts} />
+        <ErrorAlert message={error} onRetry={() => dispatch(fetchDebts({}))} />
       </div>
     );
   }

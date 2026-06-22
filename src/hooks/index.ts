@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAppDispatch, useAppSelector, setCredentials, logoutUser } from '@/store';
-import { GetMe } from '@/lib/api';
+import { useAppDispatch, useAppSelector, getMe, logoutUser } from '@/store';
 
 export function useAuth() {
   const dispatch = useAppDispatch();
@@ -8,11 +7,7 @@ export function useAuth() {
 
   useEffect(() => {
     if (!authState.isInitialized) {
-      GetMe().then(user => {
-        dispatch(setCredentials({ user }));
-      }).catch(() => {
-        dispatch(logoutUser());
-      });
+      dispatch(getMe());
     }
   }, [dispatch, authState.isInitialized]);
 

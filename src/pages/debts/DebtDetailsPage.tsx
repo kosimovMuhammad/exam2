@@ -9,7 +9,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { GetDebtById, DeleteDebt, GetDebtPayments } from '@/lib/api';
+import { useAppDispatch, useAppSelector, fetchDebtById, fetchDebtPayments, deleteDebt, clearCurrentDebt } from '@/store';
 import { PageHeader, LoadingSkeleton, ErrorAlert, ConfirmDialog } from '@/components/common';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,46 +18,36 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate, getDaysUntilDue, getDueDateStatus } from '@/lib/utils';
 import { DEBT_STATUS_COLORS, DEBT_DIRECTION_COLORS } from '@/constants';
-import type { Debt, Payment } from '@/types';
 
 export default function DebtDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [debt, setDebt] = useState<Debt | null>(null);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const { t } = useTranslation();
 
-  const fetchDebt = async () => {
-    if (!id) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [debtData, paymentsData] = await Promise.all([
-        GetDebtById(id),
-        GetDebtPayments(id).catch(() => []),
-      ]);
-      setDebt(debtData);
-      setPayments(paymentsData || []);
-    } catch {
-      setError(t('debts.failedToLoadDetails'));
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { currentDebt: debt, currentDebtStatus, error: debtError } = useAppSelector((state) => state.debts);
+  const { items: payments } = useAppSelector((state) => state.payments);
+
+  const isLoading = currentDebtStatus === 'loading' || currentDebtStatus === 'idle';
+  const error = currentDebtStatus === 'failed';
 
   useEffect(() => {
-    fetchDebt();
-  }, [id]);
+    if (id) {
+      dispatch(fetchDebtById(id));
+      dispatch(fetchDebtPayments(id));
+    }
+    return () => {
+      dispatch(clearCurrentDebt());
+    };
+  }, [id, dispatch]);
 
   const handleDelete = async () => {
     if (!id) return;
     setIsDeleting(true);
     try {
-      await DeleteDebt(id);
+      await dispatch(deleteDebt(id)).unwrap();
       toast.success(t('debts.debtDeleted'));
       navigate('/debts');
     } catch {
@@ -80,7 +70,7 @@ export default function DebtDetailsPage() {
     return (
       <div className="space-y-6">
         <PageHeader title={t('debts.debtOverview')} />
-        <ErrorAlert message={t('debts.failedToLoadDetails')} onRetry={fetchDebt} />
+        <ErrorAlert message={debtError || t('debts.failedToLoadDetails')} onRetry={() => id && dispatch(fetchDebtById(id))} />
       </div>
     );
   }

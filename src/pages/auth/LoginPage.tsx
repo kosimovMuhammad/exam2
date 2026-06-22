@@ -3,11 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CreditCard, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { LoginUser } from '@/lib/api';
-import { useAppDispatch, setCredentials } from '@/store';
+import { useAppDispatch, loginUser } from '@/store';
 import { loginSchema, LoginFormData } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import { Logo } from '@/components/ui/Logo';
 import { toast } from 'sonner';
 
 export default function LoginPage() {
@@ -40,18 +40,11 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
-      const dataResult = await LoginUser(data);
-      if (dataResult.user && dataResult.accessToken) {
-        localStorage.setItem('access', dataResult.accessToken);
-        if (dataResult.refreshToken) localStorage.setItem('refresh', dataResult.refreshToken);
-        dispatch(setCredentials({ user: dataResult.user }));
-        toast.success(t('auth.welcomeBackToast'));
-        navigate('/dashboard');
-      } else {
-        toast.error(t('auth.invalidCredentials'));
-      }
+      await dispatch(loginUser(data)).unwrap();
+      toast.success(t('auth.welcomeBackToast'));
+      navigate('/dashboard');
     } catch {
-      toast.error(t('auth.genericError'));
+      toast.error(t('auth.invalidCredentials'));
     } finally {
       setIsLoading(false);
     }
@@ -65,11 +58,8 @@ export default function LoginPage() {
         className="w-full max-w-md"
       >
         <div className="flex items-center justify-center mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-              <CreditCard className="w-7 h-7 text-primary-foreground" />
-            </div>
-            <span className="text-2xl font-bold">{t('common.appName')}</span>
+          <div className="flex justify-center mb-8">
+            <Logo className="scale-125" />
           </div>
         </div>
 

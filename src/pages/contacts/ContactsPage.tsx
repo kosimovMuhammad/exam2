@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
@@ -18,7 +18,7 @@ import {
   X
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { GetContacts, CreateContact, UpdateContact, DeleteContact, GetFolders } from '@/lib/api';
+import { useAppDispatch, useAppSelector, fetchContacts, createContact, updateContact, deleteContact, fetchFolders } from '@/store';
 import { PageHeader, LoadingSkeleton, ErrorAlert, EmptyState, ConfirmDialog } from '@/components/common';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -49,23 +49,25 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { contactSchema, ContactFormData, getInitials } from '@/lib/utils';
-import type { Contact, Folder as FolderType } from '@/types';
+import type { Contact } from '@/types';
 
 export default function ContactsPage() {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
   const folderId = searchParams.get('folderId');
   const folderName = searchParams.get('folderName');
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [folders, setFolders] = useState<FolderType[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
   
+  const { items: contacts, status: contactsStatus, error: contactsError } = useAppSelector((state) => state.contacts);
+  const { items: folders } = useAppSelector((state) => state.folders);
+  
+  const isLoading = contactsStatus === 'loading' || contactsStatus === 'idle';
+  const error = contactsError;
+  
+  const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [contactToEdit, setContactToEdit] = useState<Contact | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -90,26 +92,10 @@ export default function ContactsPage() {
     },
   });
 
-  const fetchContacts = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [result, foldersResult] = await Promise.all([
-        GetContacts(),
-        GetFolders().catch(() => [])
-      ]);
-      setContacts(result || []);
-      setFolders(foldersResult || []);
-    } catch {
-      setError(t('contacts.failedToLoad'));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [t]);
-
   useEffect(() => {
-    fetchContacts();
-  }, [fetchContacts]);
+    dispatch(fetchContacts({}));
+    dispatch(fetchFolders({}));
+  }, [dispatch]);
 
   const openAddModal = () => {
     setContactToEdit(null);
@@ -141,14 +127,13 @@ export default function ContactsPage() {
       };
 
       if (contactToEdit) {
-        await UpdateContact(contactToEdit.id, payload);
+        await dispatch(updateContact({ id: contactToEdit.id, data: payload })).unwrap();
         toast.success(t('contacts.contactUpdated'));
       } else {
-        await CreateContact(payload);
+        await dispatch(createContact(payload)).unwrap();
         toast.success(t('contacts.contactCreated'));
       }
       setIsModalOpen(false);
-      fetchContacts();
     } catch {
       toast.error(contactToEdit ? t('contacts.contactUpdateFailed') : t('contacts.contactCreateFailed'));
     } finally {
@@ -160,11 +145,10 @@ export default function ContactsPage() {
     if (!contactToDelete) return;
     setIsDeleting(true);
     try {
-      await DeleteContact(contactToDelete.id);
+      await dispatch(deleteContact(contactToDelete.id)).unwrap();
       toast.success(t('contacts.contactDeleted'));
       setDeleteDialogOpen(false);
       setContactToDelete(null);
-      fetchContacts();
     } catch {
       toast.error(t('contacts.contactDeleteFailed'));
     } finally {
@@ -183,7 +167,7 @@ export default function ContactsPage() {
     );
   });
 
-  if (isLoading) {
+  if (isLoading && contacts.length === 0) {
     return (
       <div className="space-y-6">
         <PageHeader title={t('contacts.title')} description={t('contacts.manageContacts')} />
@@ -192,11 +176,11 @@ export default function ContactsPage() {
     );
   }
 
-  if (error) {
+  if (error && contacts.length === 0) {
     return (
       <div className="space-y-6">
         <PageHeader title={t('contacts.title')} />
-        <ErrorAlert message={error} onRetry={fetchContacts} />
+        <ErrorAlert message={error} onRetry={() => dispatch(fetchContacts({}))} />
       </div>
     );
   }

@@ -73,10 +73,4 @@ export const NAVIGATION_ITEMS = [
     icon: 'Bell',
     descriptionKey: 'nav.notificationsDesc',
   },
-  {
-    titleKey: 'nav.settings',
-    href: '/settings',
-    icon: 'Settings',
-    descriptionKey: 'nav.settingsDesc',
-  },
 ] as const

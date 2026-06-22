@@ -4,11 +4,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Mail, User } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { GetMe, UpdateMe } from '@/lib/api';
+import { useAppDispatch, useAppSelector, updateMe } from '@/store';
 import { profileSchema, ProfileFormData } from '@/lib/utils';
-import { useAppDispatch } from '@/store';
-import { setCredentials } from '@/store';
-import { PageHeader, LoadingSkeleton, ErrorAlert } from '@/components/common';
+import { PageHeader, LoadingSkeleton } from '@/components/common';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,14 +16,11 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { formatDate, getInitials } from '@/lib/utils';
-import type { User as UserType } from '@/types';
 
 export default function ProfilePage() {
   const dispatch = useAppDispatch();
-  const [user, setUser] = useState<UserType | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAppSelector((state) => state.auth);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const { t } = useTranslation();
 
   const {
@@ -37,30 +32,16 @@ export default function ProfilePage() {
     resolver: zodResolver(profileSchema),
   });
 
-  const fetchProfile = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await GetMe();
-      setUser(data);
-      resetProfile({ name: data.name });
-    } catch {
-      setError(t('profile.failedToLoad'));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchProfile();
-  }, []);
+    if (user) {
+      resetProfile({ name: user.name });
+    }
+  }, [user, resetProfile]);
 
   const onProfileSubmit = async (data: ProfileFormData) => {
     setIsUpdating(true);
     try {
-      const result = await UpdateMe({ name: data.name });
-      setUser(result);
-      dispatch(setCredentials({ user: result }));
+      await dispatch(updateMe({ name: data.name })).unwrap();
       toast.success(t('profile.profileUpdated'));
     } catch {
       toast.error(t('profile.profileUpdateFailed'));
@@ -69,20 +50,11 @@ export default function ProfilePage() {
     }
   };
 
-  if (isLoading) {
+  if (!user) {
     return (
       <div className="space-y-6">
         <PageHeader title={t('profile.title')} />
         <LoadingSkeleton variant="details" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title={t('profile.title')} />
-        <ErrorAlert message={error} onRetry={fetchProfile} />
       </div>
     );
   }

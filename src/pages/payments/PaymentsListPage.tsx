@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -7,13 +7,13 @@ import {
   CreditCard,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { GetDebts, GetDebtPayments } from '@/lib/api';
+import { useAppDispatch, useAppSelector, fetchAllPayments } from '@/store';
 import { PageHeader, LoadingSkeleton, ErrorAlert, EmptyState } from '@/components/common';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, formatDate, formatRelativeTime } from '@/lib/utils';
-import type { Payment, Debt } from '@/types';
+import type { Payment } from '@/types';
 
 interface PaymentWithDebt extends Payment {
   debtDescription?: string;
@@ -21,50 +21,17 @@ interface PaymentWithDebt extends Payment {
 }
 
 export default function PaymentsListPage() {
-  const [payments, setPayments] = useState<PaymentWithDebt[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
   const { t } = useTranslation();
 
-  const fetchPayments = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const debtsResult = await GetDebts();
-      const debts: Debt[] = debtsResult || [];
-
-      const allPayments: PaymentWithDebt[] = [];
-
-      for (const debt of debts) {
-        try {
-          const paymentsResult = await GetDebtPayments(debt.id);
-          const debtPayments = paymentsResult || [];
-          debtPayments.forEach((p: Payment) => {
-            allPayments.push({
-              ...p,
-              debtDescription: debt.description || t('payments.untitledDebt'),
-              debtAmount: debt.amount,
-            });
-          });
-        } catch {
-          // skip this debt's payments
-        }
-      }
-
-      allPayments.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      setPayments(allPayments);
-    } catch {
-      setError(t('payments.paymentFailed'));
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { items: payments, status, error } = useAppSelector((state) => state.payments);
+  const isLoading = status === 'loading' || status === 'idle';
 
   useEffect(() => {
-    fetchPayments();
-  }, []);
+    dispatch(fetchAllPayments());
+  }, [dispatch]);
 
-  if (isLoading) {
+  if (isLoading && payments.length === 0) {
     return (
       <div className="space-y-6">
         <PageHeader title={t('payments.title')} description={t('payments.trackPayments')} />
@@ -73,11 +40,11 @@ export default function PaymentsListPage() {
     );
   }
 
-  if (error) {
+  if (error && payments.length === 0) {
     return (
       <div className="space-y-6">
         <PageHeader title={t('payments.title')} />
-        <ErrorAlert message={error} onRetry={fetchPayments} />
+        <ErrorAlert message={error} onRetry={() => dispatch(fetchAllPayments())} />
       </div>
     );
   }
@@ -93,7 +60,7 @@ export default function PaymentsListPage() {
         description={t('payments.trackManage')}
         action={
           <Button asChild>
-            <Link to="/payments/new">
+            <Link to="/payments/new" id="new-payment-link">
               <Plus className="w-4 h-4 mr-2" />
               {t('payments.recordPayment')}
             </Link>
@@ -118,7 +85,7 @@ export default function PaymentsListPage() {
           </Card>
         ) : (
           <div className="space-y-4">
-              {payments.map((payment, index) => (
+              {(payments as PaymentWithDebt[]).map((payment, index) => (
                 <motion.div
                   key={payment.id}
                   initial={{ opacity: 0, y: 20 }}

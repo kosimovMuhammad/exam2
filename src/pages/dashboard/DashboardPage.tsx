@@ -16,71 +16,71 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatCurrency, getDaysUntilDue } from '@/lib/utils';
-import { GetDashboardSummary, GetDebts } from '@/lib/api';
+import { useAppDispatch, useAppSelector, fetchDashboardSummary, fetchDebts } from '@/store';
 import { format } from 'date-fns';
-
-
-
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { t } = useTranslation();
-  const [summary, setSummary] = useState<any>(null);
+  
+  const { data: summary, status: dashboardStatus } = useAppSelector(state => state.dashboard);
+  const { items: debts, status: debtsStatus } = useAppSelector(state => state.debts);
+
   const [chartData, setChartData] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const isLoading = dashboardStatus === 'loading' || dashboardStatus === 'idle' || debtsStatus === 'loading' || debtsStatus === 'idle';
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const [summaryData, debtsData] = await Promise.all([
-          GetDashboardSummary(),
-          GetDebts().catch(() => []),
-        ]);
-        
-        setSummary(summaryData);
-        
-        // Compute historical balance
-        const history: any[] = [];
-        let runningBalance = 0;
-        // order debts by date ascending
-        const sortedDebts = [...(debtsData || [])].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-        
-        if (sortedDebts.length > 0) {
-          sortedDebts.forEach(debt => {
-             const amount = debt.direction === 'they_owe_me' ? debt.amount : -debt.amount;
-             runningBalance += amount;
-             history.push({
-               date: format(new Date(debt.created_at), 'MMM dd'),
-               balance: runningBalance
-             });
-          });
-        }
+    dispatch(fetchDashboardSummary());
+    dispatch(fetchDebts({}));
+  }, [dispatch]);
 
-        // if there's less than 3 points, add some filler points to make it a smooth chart
-        if (history.length < 3) {
-           const finalBalance = summaryData?.outstanding?.net_balance || 0;
-           history.length = 0; // clear
-           const today = new Date();
-           for (let i = 6; i >= 0; i--) {
-             const d = new Date(today);
-             d.setDate(d.getDate() - i);
-             history.push({
-               date: format(d, 'MMM dd'),
-               balance: i === 0 ? finalBalance : finalBalance * (1 - i * 0.1 * Math.random()),
-             });
-           }
-        }
-        setChartData(history);
-      } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
-      } finally {
-        setIsLoading(false);
+  useEffect(() => {
+    if (summary && debts.length > 0) {
+      const history: any[] = [];
+      let runningBalance = 0;
+      const sortedDebts = [...debts].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      
+      sortedDebts.forEach(debt => {
+         const amount = debt.direction === 'they_owe_me' ? debt.amount : -debt.amount;
+         runningBalance += amount;
+         history.push({
+           date: format(new Date(debt.created_at), 'MMM dd'),
+           balance: runningBalance
+         });
+      });
+
+      if (history.length < 3) {
+         const finalBalance = summary.outstanding?.net_balance || 0;
+         history.length = 0;
+         const today = new Date();
+         for (let i = 6; i >= 0; i--) {
+           const d = new Date(today);
+           d.setDate(d.getDate() - i);
+           history.push({
+             date: format(d, 'MMM dd'),
+             balance: i === 0 ? finalBalance : finalBalance * (1 - i * 0.1 * Math.random()),
+           });
+         }
       }
-    };
-    fetchDashboardData();
-  }, [t]);
+      setChartData(history);
+    } else if (summary && debts.length === 0) {
+      const finalBalance = summary.outstanding?.net_balance || 0;
+      const history: any[] = [];
+      const today = new Date();
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        history.push({
+          date: format(d, 'MMM dd'),
+          balance: finalBalance,
+        });
+      }
+      setChartData(history);
+    }
+  }, [summary, debts]);
 
-  if (isLoading) {
+  if (isLoading && !summary) {
     return <div className="flex h-full items-center justify-center p-8 animate-pulse">{t('common.loading', 'Loading...')}</div>;
   }
 
@@ -90,7 +90,6 @@ export default function DashboardPage() {
       animate={{ opacity: 1 }}
       className="space-y-6 pb-8"
     >
-      {/* Header section */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
@@ -106,17 +105,15 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Top Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Net Balance */}
         <Card className="rounded-xl border-y-0 border-r-0 border-l-[3px] border-l-blue-500 bg-[#0f172a] text-slate-50 shadow-md overflow-hidden relative">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4 relative z-10">
               <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
                 <Landmark className="w-5 h-5 text-blue-400" />
               </div>
-              <Badge variant="outline" className={cn("font-medium", summary?.outstanding?.net_balance >= 0 ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-red-500/10 text-red-400 border-red-500/20")}>
-                {summary?.outstanding?.net_balance >= 0 ? '+' : ''}{summary?.outstanding?.net_balance !== 0 ? '12.5%' : '0%'}
+              <Badge variant="outline" className={cn("font-medium", (summary?.outstanding?.net_balance ?? 0) >= 0 ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-red-500/10 text-red-400 border-red-500/20")}>
+                {(summary?.outstanding?.net_balance ?? 0) >= 0 ? '+' : ''}{(summary?.outstanding?.net_balance ?? 0) !== 0 ? '12.5%' : '0%'}
               </Badge>
             </div>
             <p className="text-sm font-medium text-slate-400 mb-1 relative z-10">{t('dashboard.netBalance', 'Net Balance')}</p>
@@ -124,7 +121,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* They Owe Me */}
         <Card className="rounded-xl border-y-0 border-r-0 border-l-[3px] border-l-green-500 bg-[#0f172a] text-slate-50 shadow-md overflow-hidden relative">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4 relative z-10">
@@ -140,7 +136,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* I Owe Them */}
         <Card className="rounded-xl border-y-0 border-r-0 border-l-[3px] border-l-red-500 bg-[#0f172a] text-slate-50 shadow-md overflow-hidden relative">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4 relative z-10">
@@ -158,14 +153,13 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Net Balance Trend */}
         <Card className="lg:col-span-2 rounded-xl shadow-sm overflow-hidden flex flex-col bg-white dark:bg-[#0f172a]">
           <CardHeader className="p-6 pb-2 relative z-10">
             <div className="flex items-start justify-between">
               <div>
                 <CardTitle className="text-lg font-semibold">{t('dashboard.netBalanceTrend', 'Net Balance Trend')}</CardTitle>
                 <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-2">
-                   {summary?.outstanding?.net_balance >= 0 ? '+' : '-'}{formatCurrency(Math.abs(summary?.outstanding?.net_balance || 0))}
+                   {(summary?.outstanding?.net_balance ?? 0) >= 0 ? '+' : '-'}{formatCurrency(Math.abs(summary?.outstanding?.net_balance ?? 0))}
                 </div>
               </div>
               <Badge className="bg-green-50 hover:bg-green-50 text-green-600 border-none font-semibold px-2 py-1">
@@ -202,9 +196,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Right Column: Quick Actions & Upcoming Due */}
         <div className="space-y-6">
-          {/* Quick Actions */}
           <Card className="rounded-xl shadow-sm">
             <CardHeader className="p-6 pb-4">
               <CardTitle className="text-lg font-semibold">{t('dashboard.quickActions', 'Quick Actions')}</CardTitle>
@@ -242,19 +234,18 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Upcoming Due */}
           <Card className="rounded-xl shadow-sm">
             <CardHeader className="p-6 pb-4 flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-lg font-semibold">{t('dashboard.upcomingDue', 'Upcoming Due')}</CardTitle>
-              {summary?.upcoming_due?.filter((item: any) => getDaysUntilDue(item.due_date) <= 3).length > 0 && (
+              {summary && summary.upcoming_due && summary.upcoming_due.filter((item: any) => getDaysUntilDue(item.due_date) <= 3).length > 0 && (
                 <Badge variant="outline" className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800">
-                  {summary.upcoming_due.filter((item: any) => getDaysUntilDue(item.due_date) <= 3).length} {t('dashboard.critical', 'Critical')}
+                  {summary?.upcoming_due?.filter((item: any) => getDaysUntilDue(item.due_date) <= 3).length || 0} {t('dashboard.critical', 'Critical')}
                 </Badge>
               )}
             </CardHeader>
             <CardContent className="p-6 pt-0">
               <div className="space-y-5">
-                {summary?.upcoming_due?.length > 0 ? summary.upcoming_due.map((item: any) => {
+                {(summary?.upcoming_due || []).length > 0 ? (summary?.upcoming_due || []).map((item: any) => {
                   const days = getDaysUntilDue(item.due_date);
                   let dueText = '';
                   let dotColor = '';
